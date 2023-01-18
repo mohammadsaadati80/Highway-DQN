@@ -14323,8 +14323,14 @@ a.anchor-link {
 <span class="kn">import</span> <span class="nn">gym</span>
 <span class="kn">import</span> <span class="nn">highway_env</span>
 
-<span class="kn">import</span> <span class="nn">torch</span>
 <span class="kn">import</span> <span class="nn">time</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span><span class="p">,</span> <span class="n">deque</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">import</span> <span class="nn">torch.optim</span> <span class="k">as</span> <span class="nn">optim</span>
 </pre></div>
 
      </div>
@@ -15008,23 +15014,20 @@ Successfully installed gym-0.26.2 highway-env-1.7.1 pygame-2.1.2
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">random</span>
-<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">namedtuple</span><span class="p">,</span> <span class="n">deque</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">Transition</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;Transition&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="s1">&#39;action&#39;</span><span class="p">,</span> <span class="s1">&#39;next_state&#39;</span><span class="p">,</span> <span class="s1">&#39;reward&#39;</span><span class="p">,</span> <span class="s1">&#39;done&#39;</span><span class="p">))</span>
 
-<span class="n">Transition</span> <span class="o">=</span> <span class="n">namedtuple</span><span class="p">(</span><span class="s1">&#39;Transition&#39;</span><span class="p">,</span> <span class="p">(</span><span class="s1">&#39;state&#39;</span><span class="p">,</span> <span class="s1">&#39;action&#39;</span><span class="p">,</span> <span class="s1">&#39;next_state&#39;</span><span class="p">,</span> <span class="s1">&#39;reward&#39;</span><span class="p">,</span> <span class="s1">&#39;done&#39;</span><span class="p">))</span>
-
-<span class="k">class</span> <span class="nc">ReplayBuffer</span><span class="p">():</span>
+<span class="k">class</span> <span class="nc">ExperienceBuffer</span><span class="p">():</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">capacity</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">memory</span> <span class="o">=</span> <span class="n">deque</span><span class="p">([],</span> <span class="n">maxlen</span><span class="o">=</span><span class="n">capacity</span><span class="p">)</span>
         
-    <span class="k">def</span> <span class="nf">store_trans</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">sp</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">done</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Transition</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">a</span><span class="p">,</span> <span class="n">sp</span><span class="p">,</span> <span class="n">r</span><span class="p">,</span> <span class="n">done</span><span class="p">))</span>
-
-    <span class="k">def</span> <span class="nf">sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
-        <span class="k">return</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>
-
     <span class="k">def</span> <span class="fm">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">store_transition</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">next_state</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">Transition</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">next_state</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">get_sample</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">random</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">memory</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">)</span>  
 </pre></div>
 
      </div>
@@ -15038,13 +15041,9 @@ Successfully installed gym-0.26.2 highway-env-1.7.1 pygame-2.1.2
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
-<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
-
-<span class="k">class</span> <span class="nc">DeepQNetwork</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">DQN</span><span class="p">(</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_size</span><span class="p">,</span> <span class="n">action_size</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
-        <span class="nb">super</span><span class="p">(</span><span class="n">DeepQNetwork</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
-        <span class="c1"># define the architecture</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DQN</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fc1</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="n">state_size</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fc2</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">fc3</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">Linear</span><span class="p">(</span><span class="mi">512</span><span class="p">,</span> <span class="mi">512</span><span class="p">)</span>
@@ -15068,102 +15067,57 @@ Successfully installed gym-0.26.2 highway-env-1.7.1 pygame-2.1.2
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
-<span class="kn">import</span> <span class="nn">torch</span>
-<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
-<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
-<span class="kn">import</span> <span class="nn">torch.optim</span> <span class="k">as</span> <span class="nn">optim</span>
-
-<span class="k">class</span> <span class="nc">DQN</span><span class="p">():</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">class</span> <span class="nc">DeepQLearning</span><span class="p">():</span>
     <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state_size</span><span class="p">,</span> <span class="n">action_size</span><span class="p">,</span> <span class="n">batch_size</span><span class="p">,</span> <span class="n">gamma</span><span class="o">=</span><span class="mf">0.99</span><span class="p">,</span> <span class="n">buffer_size</span><span class="o">=</span><span class="mi">25000</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">1e-4</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">state_size</span> <span class="o">=</span> <span class="n">state_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">action_size</span> <span class="o">=</span> <span class="n">action_size</span>
-
-        <span class="c1"># Hyperparameters</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span> <span class="o">=</span> <span class="n">batch_size</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">=</span> <span class="n">gamma</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">experience_buffer</span> <span class="o">=</span> <span class="n">ExperienceBuffer</span><span class="p">(</span><span class="n">buffer_size</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value_network</span> <span class="o">=</span> <span class="n">DQN</span><span class="p">(</span><span class="n">state_size</span><span class="p">,</span> <span class="n">action_size</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value_network</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
 
-        <span class="c1"># Experience Memory</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">replay_buffer</span> <span class="o">=</span> <span class="n">ReplayBuffer</span><span class="p">(</span><span class="n">buffer_size</span><span class="p">)</span>
-
-        <span class="c1"># Networks</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">value_net</span> <span class="o">=</span> <span class="n">DeepQNetwork</span><span class="p">(</span><span class="n">state_size</span><span class="p">,</span> <span class="n">action_size</span><span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="c1"># Optimizer</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span> <span class="o">=</span> <span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">value_net</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">alpha</span><span class="p">)</span>
-
-    <span class="k">def</span> <span class="nf">take_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">eps</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">choose_action</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">state</span><span class="p">,</span> <span class="n">epsilon</span><span class="o">=</span><span class="mf">0.0</span><span class="p">):</span>
         <span class="n">state</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">state</span><span class="p">)</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="c1"># print(&quot;salam2&quot;, len(state))</span>
-        <span class="c1"># e-greedy</span>
-        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span><span class="o">&gt;</span><span class="n">eps</span><span class="p">:</span>
-            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
-                <span class="n">qs</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_net</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
-                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">qs</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">5</span>
-        <span class="k">else</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">rand</span><span class="p">()</span><span class="o">&lt;</span><span class="n">epsilon</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">([[</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">randint</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">action_size</span><span class="p">)]])</span>
-
-    <span class="k">def</span> <span class="nf">update_params</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Update networks weights</span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">replay_buffer</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">:</span>
-            <span class="k">return</span>
-        <span class="n">batch</span> <span class="o">=</span> <span class="n">Transition</span><span class="p">(</span><span class="o">*</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">replay_buffer</span><span class="o">.</span><span class="n">sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)))</span>
-
-        <span class="n">state_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">state</span><span class="p">))</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="n">action_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">action</span><span class="p">))</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="n">next_state_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">next_state</span><span class="p">))</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="n">reward_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">reward</span><span class="p">))</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-        <span class="n">done_batch</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">done</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
-
-        <span class="c1"># Compute Q(s_t, a)</span>
-        <span class="n">q_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_net</span><span class="p">(</span><span class="n">state_batch</span><span class="p">)</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">action_batch</span><span class="p">)</span>
-        <span class="c1"># print(&quot;salam4&quot;, len(state_batch))</span>
-        <span class="c1"># print(&quot;salam5&quot;, len(next_state_batch))</span>
-        <span class="c1"># Compute the expected Q values</span>
-        <span class="n">next_q_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_net</span><span class="p">(</span><span class="n">next_state_batch</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
-
-        <span class="n">next_q_values</span> <span class="o">=</span> <span class="n">next_q_values</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">done_batch</span><span class="p">)]</span>
-
-        <span class="c1"># print(len(next_q_values), len(done_batch))</span>
-        <span class="c1"># print(&quot;\nsalam&quot;, len(done_batch[0]),&quot;\n&quot;)</span>
-        <span class="c1"># print(&quot;\nsalam&quot;, type(done_batch),&quot;\n&quot;)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">():</span>
+                <span class="n">q_value</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_network</span><span class="p">(</span><span class="n">state</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">torch</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">q_value</span><span class="p">)</span><span class="o">.</span><span class="n">view</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">action_size</span>
+            
+    <span class="k">def</span> <span class="nf">get_sample_experiences</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">batch</span> <span class="o">=</span> <span class="n">Transition</span><span class="p">(</span><span class="o">*</span><span class="nb">zip</span><span class="p">(</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">experience_buffer</span><span class="o">.</span><span class="n">get_sample</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">)))</span>
+        <span class="n">batch_state</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">state</span><span class="p">))</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">batch_action</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">action</span><span class="p">))</span><span class="o">.</span><span class="n">long</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">batch_next_state</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">from_numpy</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">next_state</span><span class="p">))</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">batch_reward</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">reward</span><span class="p">))</span><span class="o">.</span><span class="n">float</span><span class="p">()</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="n">batch_done</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">tensor</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">vstack</span><span class="p">(</span><span class="n">batch</span><span class="o">.</span><span class="n">done</span><span class="p">))</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">batch_state</span><span class="p">,</span> <span class="n">batch_action</span><span class="p">,</span> <span class="n">batch_next_state</span><span class="p">,</span> <span class="n">batch_reward</span><span class="p">,</span> <span class="n">batch_done</span>
+    
+    <span class="k">def</span> <span class="nf">calculate_q_values</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">batch_state</span><span class="p">,</span> <span class="n">batch_action</span><span class="p">,</span> <span class="n">batch_next_state</span><span class="p">,</span> <span class="n">batch_reward</span><span class="p">,</span> <span class="n">batch_done</span><span class="p">):</span>
+        <span class="n">q_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_network</span><span class="p">(</span><span class="n">batch_state</span><span class="p">)</span><span class="o">.</span><span class="n">gather</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">batch_action</span><span class="p">)</span>
+        <span class="n">next_q_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">value_network</span><span class="p">(</span><span class="n">batch_next_state</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">unsqueeze</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">next_q_values</span> <span class="o">=</span> <span class="n">next_q_values</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="nb">len</span><span class="p">(</span><span class="n">batch_done</span><span class="p">)]</span>
+        <span class="n">next_q_values</span><span class="p">[</span><span class="n">batch_done</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
+        <span class="n">expected_q_values</span> <span class="o">=</span> <span class="n">batch_reward</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="n">next_q_values</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">q_values</span><span class="p">,</span> <span class="n">expected_q_values</span>
         
-        <span class="c1"># x= done_batch</span>
-        <span class="c1"># for i in range(2):</span>
-        <span class="c1">#     done_batch = torch.cat((done_batch,done_batch),0)</span>
-        <span class="c1"># done_batch = torch.cat((done_batch,x),0)</span>
-
-        <span class="c1"># print(&quot;\nsalam2&quot;, done_batch*5,&quot;\n&quot;)</span>
-        <span class="c1"># print(&quot;\nsalam&quot;, len(done_batch),&quot;\n&quot;)</span>
-        <span class="n">next_q_values</span><span class="p">[</span><span class="n">done_batch</span><span class="p">]</span> <span class="o">=</span> <span class="mf">0.0</span>
-
-        <span class="c1"># x= reward_batch</span>
-        <span class="c1"># for i in range(2):</span>
-        <span class="c1">#     reward_batch = torch.cat((reward_batch,reward_batch),0)</span>
-        <span class="c1"># reward_batch = torch.cat((reward_batch,x),0)</span>
-
-        <span class="c1"># print(len(reward_batch))</span>
-        <span class="c1"># print(len(next_q_values))</span>
-
-        <span class="n">expected_q_values</span> <span class="o">=</span> <span class="n">reward_batch</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">gamma</span> <span class="o">*</span> <span class="n">next_q_values</span><span class="p">)</span>
-
-        <span class="c1"># x= q_values</span>
-        <span class="c1"># for i in range(2):</span>
-        <span class="c1">#     q_values = torch.cat((q_values,q_values),0)</span>
-        <span class="c1"># q_values = torch.cat((q_values,x),0)</span>
-
-        <span class="c1"># Compute loss</span>
+    <span class="k">def</span> <span class="nf">compute_loss</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">q_values</span><span class="p">,</span> <span class="n">expected_q_values</span><span class="p">):</span>
         <span class="n">loss</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">mse_loss</span><span class="p">(</span><span class="n">q_values</span><span class="p">,</span> <span class="n">expected_q_values</span><span class="p">)</span>
-
-        <span class="c1"># Optimize the model</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
         <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+    
+    <span class="k">def</span> <span class="nf">learn</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">experience_buffer</span><span class="p">)</span> <span class="o">&lt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">batch_size</span><span class="p">:</span>
+            <span class="k">return</span>
+        <span class="n">batch_state</span><span class="p">,</span> <span class="n">batch_action</span><span class="p">,</span> <span class="n">batch_next_state</span><span class="p">,</span> <span class="n">batch_reward</span><span class="p">,</span> <span class="n">batch_done</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_sample_experiences</span><span class="p">()</span>
+        <span class="n">q_values</span><span class="p">,</span> <span class="n">expected_q_values</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">calculate_q_values</span><span class="p">(</span><span class="n">batch_state</span><span class="p">,</span> <span class="n">batch_action</span><span class="p">,</span> <span class="n">batch_next_state</span><span class="p">,</span> <span class="n">batch_reward</span><span class="p">,</span> <span class="n">batch_done</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">compute_loss</span><span class="p">(</span><span class="n">q_values</span><span class="p">,</span> <span class="n">expected_q_values</span><span class="p">)</span>    
 
     <span class="k">def</span> <span class="nf">load</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fname</span><span class="p">,</span> <span class="n">device</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">value_net</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)))</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">value_network</span><span class="o">.</span><span class="n">load_state_dict</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">fname</span><span class="p">,</span> <span class="n">map_location</span><span class="o">=</span><span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="n">device</span><span class="p">)))</span>
 </pre></div>
 
      </div>
@@ -15177,55 +15131,47 @@ Successfully installed gym-0.26.2 highway-env-1.7.1 pygame-2.1.2
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">run_DQN_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="p">,</span> <span class="n">_agent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">n_episodes</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span> <span class="n">eps_decay_rate</span><span class="o">=</span><span class="mf">0.97</span><span class="p">,</span> <span class="n">reps</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
-    <span class="n">eps_end</span> <span class="o">=</span> <span class="mf">0.01</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="k">def</span> <span class="nf">run_DeepQLearning_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="p">,</span> <span class="n">_agent</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">number_of_episodes</span><span class="o">=</span><span class="mi">250</span><span class="p">,</span> <span class="n">epsilon_decay_rate</span><span class="o">=</span><span class="mf">0.97</span><span class="p">,</span> <span class="n">reps</span><span class="o">=</span><span class="mi">10</span><span class="p">):</span>
+    <span class="n">epsilon_end</span> <span class="o">=</span> <span class="mf">0.01</span>
     <span class="n">optimal_agent</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">state_dict</span> <span class="o">=</span> <span class="kc">None</span>
     <span class="n">cpp</span> <span class="o">=</span> <span class="kc">None</span>
 
-    <span class="n">crs1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">reps</span><span class="p">,</span><span class="n">n_episodes</span><span class="p">))</span>
+    <span class="n">cumulative_rewards</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">reps</span><span class="p">,</span><span class="n">number_of_episodes</span><span class="p">))</span>
     <span class="k">for</span> <span class="n">rep</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">reps</span><span class="p">):</span>
         <span class="n">agent</span> <span class="o">=</span> <span class="n">_agent</span>
         <span class="k">if</span> <span class="n">_agent</span> <span class="o">==</span> <span class="kc">None</span><span class="p">:</span>
-            <span class="n">agent</span> <span class="o">=</span> <span class="n">DQN</span><span class="p">(</span><span class="n">state_size</span><span class="p">,</span> <span class="n">action_size</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">_batch_size</span><span class="p">)</span>
-        <span class="n">eps</span> <span class="o">=</span> <span class="mf">1.0</span>
+            <span class="n">agent</span> <span class="o">=</span> <span class="n">DeepQLearning</span><span class="p">(</span><span class="n">state_size</span><span class="p">,</span> <span class="n">action_size</span><span class="p">,</span> <span class="n">batch_size</span><span class="o">=</span><span class="n">_batch_size</span><span class="p">)</span>
+        <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">1.0</span>
         
-        <span class="k">for</span> <span class="n">i_episode</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_episodes</span><span class="o">+</span><span class="mi">1</span><span class="p">):</span>
-            <span class="n">crs_recent</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
-            <span class="c1"># Initialize the environment and state</span>
+        <span class="k">for</span> <span class="n">episode</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">number_of_episodes</span><span class="p">):</span>
+            <span class="n">recent_cumulative_rewards</span> <span class="o">=</span> <span class="n">deque</span><span class="p">(</span><span class="n">maxlen</span><span class="o">=</span><span class="mi">25</span><span class="p">)</span>
             <span class="c1"># obs, info = S = env.reset()</span>
-            <span class="n">S</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
-            <span class="c1"># S = obs</span>
+            <span class="n">state</span><span class="p">,</span><span class="n">_</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
             <span class="n">done</span> <span class="o">=</span> <span class="n">truncated</span> <span class="o">=</span> <span class="kc">False</span>
-            <span class="n">cr</span> <span class="o">=</span> <span class="mi">0</span>
-            <span class="n">n_step</span> <span class="o">=</span> <span class="mi">0</span>
+            <span class="n">cumulative_reward</span> <span class="o">=</span> <span class="mi">0</span>
             <span class="k">while</span> <span class="ow">not</span> <span class="p">(</span><span class="n">done</span> <span class="ow">or</span> <span class="n">truncated</span><span class="p">):</span>
-                <span class="c1"># Select and perform an action</span>
-                <span class="n">A</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">take_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">eps</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
-                <span class="c1"># print(A)</span>
-                <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
-                <span class="n">Sp</span><span class="p">,</span> <span class="n">R</span> <span class="o">=</span> <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span>
-                <span class="c1"># print(&quot;salam&quot;,len(S), A, len(Sp), R, done)</span>
-                <span class="n">agent</span><span class="o">.</span><span class="n">replay_buffer</span><span class="o">.</span><span class="n">store_trans</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">A</span><span class="p">,</span> <span class="n">Sp</span><span class="p">,</span> <span class="n">R</span><span class="p">,</span> <span class="n">done</span><span class="p">)</span>
-                <span class="n">agent</span><span class="o">.</span><span class="n">update_params</span><span class="p">()</span>
-                
-                <span class="n">S</span> <span class="o">=</span> <span class="n">Sp</span>
-                <span class="n">cr</span> <span class="o">+=</span> <span class="n">R</span>
+                <span class="n">action</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">choose_action</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">epsilon</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+                <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">action</span><span class="p">)</span>
+                <span class="n">next_state</span><span class="p">,</span> <span class="n">reward</span> <span class="o">=</span> <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span>
+                <span class="n">agent</span><span class="o">.</span><span class="n">experience_buffer</span><span class="o">.</span><span class="n">store_transition</span><span class="p">(</span><span class="n">state</span><span class="p">,</span> <span class="n">action</span><span class="p">,</span> <span class="n">next_state</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">)</span>
+                <span class="n">agent</span><span class="o">.</span><span class="n">learn</span><span class="p">()</span>
+                <span class="n">state</span> <span class="o">=</span> <span class="n">next_state</span>
+                <span class="n">cumulative_reward</span> <span class="o">+=</span> <span class="n">reward</span>
             
-            <span class="n">eps</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">eps_end</span><span class="p">,</span> <span class="n">eps_decay_rate</span><span class="o">*</span><span class="n">eps</span><span class="p">)</span>
-
-            <span class="n">crs1</span><span class="p">[</span><span class="n">rep</span><span class="p">][</span><span class="n">i_episode</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span><span class="o">=</span><span class="n">cr</span>
-            <span class="n">crs_recent</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cr</span><span class="p">)</span>
-            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\r</span><span class="s1">Episode </span><span class="si">{}</span><span class="se">\t</span><span class="s1">Average Reward: </span><span class="si">{:.2f}</span><span class="se">\t</span><span class="s1">Epsilon: </span><span class="si">{:.2f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i_episode</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">crs_recent</span><span class="p">),</span> <span class="n">eps</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
-            <span class="k">if</span> <span class="n">i_episode</span> <span class="o">%</span> <span class="mi">25</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
-                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\r</span><span class="s1">Episode </span><span class="si">{}</span><span class="se">\t</span><span class="s1">Average Reward: </span><span class="si">{:.2f}</span><span class="se">\t</span><span class="s1">Epsilon: </span><span class="si">{:.2f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">i_episode</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">crs_recent</span><span class="p">),</span> <span class="n">eps</span><span class="p">))</span>
+            <span class="n">cumulative_rewards</span><span class="p">[</span><span class="n">rep</span><span class="p">][</span><span class="n">episode</span><span class="p">]</span><span class="o">=</span><span class="n">cumulative_reward</span>
+            <span class="n">recent_cumulative_rewards</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cumulative_reward</span><span class="p">)</span>
+            <span class="n">epsilon</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">epsilon_end</span><span class="p">,</span> <span class="n">epsilon_decay_rate</span><span class="o">*</span><span class="n">epsilon</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\r</span><span class="s1">Episode </span><span class="si">{}</span><span class="se">\t</span><span class="s1">Average Reward: </span><span class="si">{:.2f}</span><span class="se">\t</span><span class="s1">Epsilon: </span><span class="si">{:.2f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">episode</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">recent_cumulative_rewards</span><span class="p">),</span> <span class="n">epsilon</span><span class="p">),</span> <span class="n">end</span><span class="o">=</span><span class="s2">&quot;&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">episode</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">%</span> <span class="mi">25</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\r</span><span class="s1">Episode </span><span class="si">{}</span><span class="se">\t</span><span class="s1">Average Reward: </span><span class="si">{:.2f}</span><span class="se">\t</span><span class="s1">Epsilon: </span><span class="si">{:.2f}</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">episode</span><span class="o">+</span><span class="mi">1</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">recent_cumulative_rewards</span><span class="p">),</span> <span class="n">epsilon</span><span class="p">))</span>
 
         <span class="n">cpp</span> <span class="o">=</span> <span class="s1">&#39;dqn&#39;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">_batch_size</span><span class="p">)</span> <span class="o">+</span><span class="s1">&#39;-checkpoint.pth&#39;</span>
-        <span class="n">state_dict</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">value_net</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
-        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">value_net</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="n">cpp</span><span class="p">)</span>
+        <span class="n">state_dict</span> <span class="o">=</span> <span class="n">agent</span><span class="o">.</span><span class="n">value_network</span><span class="o">.</span><span class="n">state_dict</span><span class="p">()</span>
+        <span class="n">torch</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">agent</span><span class="o">.</span><span class="n">value_network</span><span class="o">.</span><span class="n">state_dict</span><span class="p">(),</span> <span class="n">cpp</span><span class="p">)</span>
         <span class="n">optimal_agent</span> <span class="o">=</span> <span class="n">agent</span>
 
-    <span class="k">return</span> <span class="n">crs1</span><span class="p">,</span> <span class="n">agent</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">cpp</span>
+    <span class="k">return</span> <span class="n">cumulative_rewards</span><span class="p">,</span> <span class="n">agent</span><span class="p">,</span> <span class="n">state_dict</span><span class="p">,</span> <span class="n">cpp</span>
 </pre></div>
 
      </div>
@@ -15245,7 +15191,7 @@ Successfully installed gym-0.26.2 highway-env-1.7.1 pygame-2.1.2
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">crs1</span><span class="p">,</span> <span class="n">agent1</span> <span class="o">=</span> <span class="n">run_DQN_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">crs1</span><span class="p">,</span> <span class="n">agent1</span> <span class="o">=</span> <span class="n">run_DeepQLearning_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -15379,7 +15325,7 @@ Episode 250	Average Reward: 14.92	Epsilon: 0.01
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">crs2</span><span class="p">,</span> <span class="n">agent2</span> <span class="o">=</span> <span class="n">run_DQN_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">crs2</span><span class="p">,</span> <span class="n">agent2</span> <span class="o">=</span> <span class="n">run_DeepQLearning_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">64</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -15513,7 +15459,7 @@ Episode 250	Average Reward: 10.77	Epsilon: 0.01
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span> <span class="n">crs3</span><span class="p">,</span> <span class="n">agent3</span> <span class="o">=</span> <span class="n">run_DQN_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span> <span class="n">crs3</span><span class="p">,</span> <span class="n">agent3</span> <span class="o">=</span> <span class="n">run_DeepQLearning_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">128</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -15728,7 +15674,7 @@ Episode 250	Average Reward: 14.25	Epsilon: 0.01
 <div class="jp-InputPrompt jp-InputArea-prompt">In&nbsp;[&nbsp;]:</div>
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
-<div class=" highlight hl-ipython3"><pre><span></span><span class="n">crs6</span><span class="p">,</span> <span class="n">agent6</span><span class="p">,</span> <span class="n">state_dict6</span><span class="p">,</span> <span class="n">cpp6</span>  <span class="o">=</span> <span class="n">run_DQN_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">reps</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+<div class=" highlight hl-ipython3"><pre><span></span><span class="n">crs6</span><span class="p">,</span> <span class="n">agent6</span><span class="p">,</span> <span class="n">state_dict6</span><span class="p">,</span> <span class="n">cpp6</span>  <span class="o">=</span> <span class="n">run_DeepQLearning_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">reps</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </pre></div>
 
      </div>
@@ -15839,7 +15785,7 @@ Requirement already satisfied: pygame in /usr/local/lib/python3.8/dist-packages 
 <span class="n">S</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">reset</span><span class="p">()</span>
 <span class="k">while</span> <span class="ow">not</span> <span class="p">(</span><span class="n">done</span> <span class="ow">or</span> <span class="n">truncated</span><span class="p">):</span>
   <span class="n">env</span><span class="o">.</span><span class="n">render</span><span class="p">()</span>
-  <span class="n">A</span> <span class="o">=</span> <span class="n">agent6</span><span class="o">.</span><span class="n">take_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+  <span class="n">A</span> <span class="o">=</span> <span class="n">agent6</span><span class="o">.</span><span class="n">choose_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
   <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
   <span class="n">S</span> <span class="o">=</span> <span class="n">obs</span>
 <span class="n">env</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
@@ -15956,7 +15902,7 @@ Use &#39;apt autoremove&#39; to remove it.
 <span class="n">env</span> <span class="o">=</span> <span class="n">record_videos</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
 
 <span class="k">while</span> <span class="ow">not</span> <span class="p">(</span><span class="n">done</span> <span class="ow">or</span> <span class="n">truncated</span><span class="p">):</span>
-  <span class="n">A</span> <span class="o">=</span> <span class="n">agent6</span><span class="o">.</span><span class="n">take_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+  <span class="n">A</span> <span class="o">=</span> <span class="n">agent6</span><span class="o">.</span><span class="n">choose_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
   <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
   <span class="n">S</span> <span class="o">=</span> <span class="n">obs</span>
   <span class="n">env</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;rgb_array&#39;</span><span class="p">)</span>
@@ -16092,7 +16038,7 @@ Use &#39;apt autoremove&#39; to remove it.
 <span class="n">env</span><span class="o">.</span><span class="n">unwrapped</span><span class="o">.</span><span class="n">set_record_video_wrapper</span><span class="p">(</span><span class="n">env</span><span class="p">)</span>
 
 <span class="k">while</span> <span class="ow">not</span> <span class="p">(</span><span class="n">done</span> <span class="ow">or</span> <span class="n">truncated</span><span class="p">):</span>
-  <span class="n">A</span> <span class="o">=</span> <span class="n">agent6</span><span class="o">.</span><span class="n">take_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+  <span class="n">A</span> <span class="o">=</span> <span class="n">agent6</span><span class="o">.</span><span class="n">choose_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
   <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
   <span class="n">S</span> <span class="o">=</span> <span class="n">obs</span>
   
@@ -16199,7 +16145,7 @@ Use &#39;apt autoremove&#39; to remove it.
 <span class="n">prev_screen</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;rgb_array&#39;</span><span class="p">)</span>
 <span class="n">plt</span><span class="o">.</span><span class="n">imshow</span><span class="p">(</span><span class="n">prev_screen</span><span class="p">)</span>
 <span class="k">while</span> <span class="ow">not</span> <span class="p">(</span><span class="n">done</span> <span class="ow">or</span> <span class="n">truncated</span><span class="p">):</span>
-  <span class="n">A</span> <span class="o">=</span> <span class="n">agent6</span><span class="o">.</span><span class="n">take_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
+  <span class="n">A</span> <span class="o">=</span> <span class="n">agent6</span><span class="o">.</span><span class="n">choose_action</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="mf">0.2</span><span class="p">)</span><span class="o">.</span><span class="n">item</span><span class="p">()</span>
   <span class="n">obs</span><span class="p">,</span> <span class="n">reward</span><span class="p">,</span> <span class="n">done</span><span class="p">,</span> <span class="n">truncated</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">step</span><span class="p">(</span><span class="n">A</span><span class="p">)</span>
   <span class="n">S</span> <span class="o">=</span> <span class="n">obs</span>
   <span class="n">screen</span> <span class="o">=</span> <span class="n">env</span><span class="o">.</span><span class="n">render</span><span class="p">(</span><span class="n">mode</span><span class="o">=</span><span class="s1">&#39;rgb_array&#39;</span><span class="p">)</span>
@@ -16430,7 +16376,7 @@ _________________________________________________________________
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<span class="n">crs4</span><span class="p">,</span> <span class="n">agent4</span> <span class="o">=</span> <span class="n">run_DQN_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">n_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">eps_decay_rate</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">reps</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">crs4</span><span class="p">,</span> <span class="n">agent4</span> <span class="o">=</span> <span class="n">run_DeepQLearning_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">number_of_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">epsilon_decay_rate</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">reps</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 </pre></div>
 
@@ -16513,7 +16459,7 @@ Episode 100	Average Reward: 9.04	Epsilon: 0.01
 <div class="jp-CodeMirrorEditor jp-Editor jp-InputArea-editor" data-type="inline">
      <div class="CodeMirror cm-s-jupyter">
 <div class=" highlight hl-ipython3"><pre><span></span><span class="n">start</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
-<span class="n">crs5</span><span class="p">,</span> <span class="n">agent5</span> <span class="o">=</span> <span class="n">run_DQN_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">_agent</span><span class="o">=</span><span class="n">agent1</span><span class="p">,</span> <span class="n">n_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">eps_decay_rate</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">reps</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+<span class="n">crs5</span><span class="p">,</span> <span class="n">agent5</span> <span class="o">=</span> <span class="n">run_DeepQLearning_agent</span><span class="p">(</span><span class="n">_batch_size</span><span class="o">=</span><span class="mi">32</span><span class="p">,</span> <span class="n">_agent</span><span class="o">=</span><span class="n">agent1</span><span class="p">,</span> <span class="n">number_of_episodes</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">epsilon_decay_rate</span><span class="o">=</span><span class="mf">0.95</span><span class="p">,</span> <span class="n">reps</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
 <span class="n">end</span> <span class="o">=</span> <span class="n">time</span><span class="o">.</span><span class="n">time</span><span class="p">()</span>
 </pre></div>
 
