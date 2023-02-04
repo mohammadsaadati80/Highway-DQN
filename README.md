@@ -10,10 +10,12 @@ In this exercise, we solve the [merge-v0](https://github.com/eleurent/highway-en
 
 ![image](https://user-images.githubusercontent.com/65104833/216776397-190b7672-ff84-4f68-9b7a-b55d91c2e261.png)
 <p align="center"> 
+    <img src="https://raw.githubusercontent.com/eleurent/highway-env/master/../gh-media/docs/media/merge-env.gif?raw=true"><br/>
     <em>The merge-v0 environment.</em>
 </p>
 
 ![image](https://user-images.githubusercontent.com/65104833/216776424-f3a170d5-9522-4ffc-b1a8-85183f5eb7c7.png)
-<p align="center"> 
+<p align="center">     
+    <img src="https://raw.githubusercontent.com/eleurent/highway-env/master/../gh-media/docs/media/highway.gif?raw=true"><br/>
     <em>The highway-v0 environment.</em>
 </p>
